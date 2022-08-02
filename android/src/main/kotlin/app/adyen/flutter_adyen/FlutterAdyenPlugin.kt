@@ -116,6 +116,14 @@ class FlutterAdyenPlugin :
 
                 try {
                     val jsonObject = JSONObject(paymentMethods ?: "")
+                    // Workaround - JSONObject stores null in paymentMethods as String
+                    // This causes an error on the backend, therefore we remove the value completely.
+                    if(!jsonObject.getJSONArray("paymentMethods").isNull(1)){
+                        val fundingSource = jsonObject.getJSONArray("paymentMethods").getJSONObject(1).getStringOrNull("fundingSource");
+                        if(fundingSource is String ){
+                            jsonObject.getJSONArray("paymentMethods").getJSONObject(1).remove("fundingSource")
+                        }
+                    }
                     val paymentMethodsApiResponse = PaymentMethodsApiResponse.SERIALIZER.deserialize(jsonObject)
                     val shopperLocale = Locale.GERMANY
                     // val shopperLocale = if (LocaleUtil.isValidLocale(locale)) locale else LocaleUtil.getLocale(nonNullActivity)
