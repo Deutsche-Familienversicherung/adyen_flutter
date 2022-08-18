@@ -323,7 +323,10 @@ class AdyenDropinService : DropInService() {
     override fun makeDetailsCall(actionComponentJson: JSONObject): DropInServiceResult {
         val sharedPref = getSharedPreferences("ADYEN", Context.MODE_PRIVATE)
         val baseUrl = sharedPref.getString("baseUrl", "UNDEFINED_STR")
-        val requestBody = RequestBody.create(MediaType.parse("application/json"), actionComponentJson.toString())
+        val additionalDataString = sharedPref.getString("additionalData", "UNDEFINED_STR")
+        val paymentsDetailsString = actionComponentJson.toString()
+        val requestString = "{\"paymentsDetails\":$paymentsDetailsString , \"additionalData\": $additionalDataString }"
+        val requestBody = RequestBody.create(MediaType.parse("application/json"), requestString)
         val headers: HashMap<String, String> = HashMap()
 
         val call = getService(headers, baseUrl ?: "").details(requestBody)
