@@ -183,8 +183,9 @@ extension SwiftFlutterAdyenPlugin: DropInComponentDelegate {
         request.httpMethod = "POST"
         request.addValue("application/json", forHTTPHeaderField: "Content-Type")
         let detailsRequest = DetailsRequest(paymentData: data.paymentData ?? "", details: data.details.encodable)
+        let customDetailsRequest = CustomDetailsRequest(paymentsDetails: detailsRequest, additionalData: additionalData ?? [String: String]())
         do {
-            let detailsRequestData = try JSONEncoder().encode(detailsRequest)
+            let detailsRequestData = try JSONEncoder().encode(customDetailsRequest)
             request.httpBody = detailsRequestData
             URLSession.shared.dataTask(with: request) { data, response, error in
                 if let response = response as? HTTPURLResponse,
@@ -215,6 +216,11 @@ extension SwiftFlutterAdyenPlugin: DropInComponentDelegate {
         }
     }
 
+}
+
+struct CustomDetailsRequest: Encodable {
+    let paymentsDetails: DetailsRequest
+    let additionalData: [String: String]
 }
 
 struct DetailsRequest: Encodable {
