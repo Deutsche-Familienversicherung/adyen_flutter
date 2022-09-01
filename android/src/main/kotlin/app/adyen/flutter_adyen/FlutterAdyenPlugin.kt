@@ -8,6 +8,7 @@ import com.adyen.checkout.components.model.PaymentMethodsApiResponse
 import com.adyen.checkout.components.model.payments.Amount
 import com.adyen.checkout.components.model.payments.request.PaymentComponentData
 import com.adyen.checkout.components.model.payments.request.PaymentMethodDetails
+import com.adyen.checkout.core.model.getStringOrNull
 import com.adyen.checkout.core.api.Environment
 import com.adyen.checkout.dropin.DropIn
 import com.adyen.checkout.dropin.DropInConfiguration
@@ -116,6 +117,14 @@ class FlutterAdyenPlugin :
 
                 try {
                     val jsonObject = JSONObject(paymentMethods ?: "")
+                    // Workaround - JSONObject stores null in paymentMethods as String
+                    // This causes an error on the backend, therefore we remove the value completely.
+                    if(!jsonObject.getJSONArray("paymentMethods").isNull(1)){
+                        val fundingSource = jsonObject.getJSONArray("paymentMethods").getJSONObject(1).getStringOrNull("fundingSource");
+                        if(fundingSource is String ){
+                            jsonObject.getJSONArray("paymentMethods").getJSONObject(1).remove("fundingSource")
+                        }
+                    }
                     val paymentMethodsApiResponse = PaymentMethodsApiResponse.SERIALIZER.deserialize(jsonObject)
                     val shopperLocale = Locale.GERMANY
                     // val shopperLocale = if (LocaleUtil.isValidLocale(locale)) locale else LocaleUtil.getLocale(nonNullActivity)
@@ -314,7 +323,10 @@ class AdyenDropinService : DropInService() {
     override fun makeDetailsCall(actionComponentJson: JSONObject): DropInServiceResult {
         val sharedPref = getSharedPreferences("ADYEN", Context.MODE_PRIVATE)
         val baseUrl = sharedPref.getString("baseUrl", "UNDEFINED_STR")
-        val requestBody = RequestBody.create(MediaType.parse("application/json"), actionComponentJson.toString())
+        val additionalDataString = sharedPref.getString("additionalData", "UNDEFINED_STR")
+        val paymentsDetailsString = actionComponentJson.toString()
+        val requestString = "{\"paymentsDetails\":$paymentsDetailsString , \"additionalData\": $additionalDataString }"
+        val requestBody = RequestBody.create(MediaType.parse("application/json"), requestString)
         val headers: HashMap<String, String> = HashMap()
 
         val call = getService(headers, baseUrl ?: "").details(requestBody)
