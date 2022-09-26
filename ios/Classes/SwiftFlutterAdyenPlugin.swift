@@ -3,6 +3,7 @@ import Adyen3DS2
 import AdyenNetworking
 import Flutter
 import Foundation
+import PassKit
 import UIKit
 
 struct PaymentError: Error {}
@@ -32,6 +33,7 @@ public class SwiftFlutterAdyenPlugin: NSObject, FlutterPlugin {
     var lineItemJson: [String: String]?
     var shopperLocale: String?
     var additionalData: [String: String]?
+    var appleMerchantID: String?
 
     public func handle(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
         guard call.method.elementsEqual("openDropIn") else { return }
@@ -50,6 +52,7 @@ public class SwiftFlutterAdyenPlugin: NSObject, FlutterPlugin {
         returnUrl = arguments?["returnUrl"] as? String
         shopperReference = arguments?["shopperReference"] as? String
         shopperLocale = String((arguments?["locale"] as? String)?.split(separator: "_").last ?? "DE")
+        appleMerchantID = arguments?["appleMerchantID"] as? String
         mResult = result
 
         guard let paymentData = paymentMethodsResponse?.data(using: .utf8),
@@ -71,8 +74,25 @@ public class SwiftFlutterAdyenPlugin: NSObject, FlutterPlugin {
 
         let dropInComponentStyle = DropInComponent.Style()
 
-        let apiContext = APIContext(environment: ctx, clientKey: clientKey!)
-        let configuration = DropInComponent.Configuration(apiContext: apiContext);
+        let apiContext = APIContext(environment: ctx, clientKey: clientKey ?? "")
+        let configuration = DropInComponent.Configuration(apiContext: apiContext)
+
+        if let appleMerchantID = self.appleMerchantID {
+            let amountInteger = Int(amount ?? "0") ?? 0
+            let adyenAmount = Adyen.Amount(value: amountInteger, currencyCode: currency ?? "EUR")
+            configuration.payment = Adyen.Payment(amount: adyenAmount, countryCode: shopperLocale ?? "DE")
+
+            configuration.applePay = {
+                let lineItemDesc = lineItemJson?["description"] as? String
+                    ?? NSLocalizedString("Error", comment: "Unexpected fallback")
+                let amountDecimal = NSDecimalNumber(value: amountInteger).dividing(by: 100.0)
+                let summaryItems = [
+                    PKPaymentSummaryItem(label: lineItemDesc, amount: amountDecimal, type: .final)
+                ]
+                return ApplePayComponent.Configuration(summaryItems: summaryItems, merchantIdentifier: appleMerchantID)
+            }()
+        }
+
         configuration.card.showsHolderNameField = true
         dropInComponent = DropInComponent(paymentMethods: paymentMethods, configuration: configuration, style: dropInComponentStyle)
         dropInComponent?.delegate = self
